@@ -1,0 +1,45 @@
+name: Build PhotoClock IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate
+      - name: Show Xcode version
+        run: xcodebuild -version
+      - name: Build unsigned app
+        run: |
+          xcodebuild             -project PhotoClock.xcodeproj             -scheme PhotoClock             -configuration Release             -sdk iphoneos             -derivedDataPath build             CODE_SIGNING_ALLOWED=NO             CODE_SIGNING_REQUIRED=NO             CODE_SIGN_IDENTITY=""
+      - name: Check built app
+        run: |
+          ls -la build/Build/Products/Release-iphoneos/
+          test -d build/Build/Products/Release-iphoneos/PhotoClock.app
+      - name: Package IPA
+        run: |
+          rm -rf Payload
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/PhotoClock.app Payload/
+          zip -r PhotoClock.ipa Payload
+          rm -rf Payload
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhotoClock-IPA
+          path: PhotoClock.ipa
+          if-no-files-found: error
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "build-${{ github.run_number }}"             PhotoClock.ipa             --title "PhotoClock Build ${{ github.run_number }}"             --notes "PhotoClock V2 IPA build"
