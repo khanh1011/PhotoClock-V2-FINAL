@@ -1,0 +1,27 @@
+name: PhotoClock
+options:
+  projectFormat: xcode15_3
+  deploymentTarget:
+    iOS: "15.0"
+targets:
+  PhotoClock:
+    type: application
+    platform: iOS
+    sources:
+      - path: PhotoClock
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.khanh.photoclock
+      INFOPLIST_KEY_CFBundleDisplayName: PhotoClock
+      INFOPLIST_KEY_UIStatusBarHidden: true
+      INFOPLIST_KEY_UIRequiresFullScreen: true
+      INFOPLIST_KEY_LSRequiresIPhoneOS: true
+      GENERATE_INFOPLIST_FILE: YES
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      SWIFT_VERSION: "5.0"
+      TARGETED_DEVICE_FAMILY: "1"
+      INFOPLIST_KEY_UISupportedInterfaceOrientations~iphone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+      CODE_SIGN_STYLE: Manual
+      DEVELOPMENT_TEAM: ""
+      CODE_SIGN_IDENTITY: ""
+      CODE_SIGNING_REQUIRED: NO
+      CODE_SIGNING_ALLOWED: NO
