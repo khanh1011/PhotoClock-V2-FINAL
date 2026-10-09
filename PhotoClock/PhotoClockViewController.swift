@@ -183,12 +183,12 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
             photoImageView.alpha = 1
             dimView.alpha = imageDarkness
             let clockHeight: CGFloat = min(76, max(48, height * 0.16))
-            let dateHeight: CGFloat = showDate ? min(42, max(24, height * 0.085)) : 0
+            let dateHeight: CGFloat = showDate ? min(48, max(42, height * 0.14)) : 0
             let gap: CGFloat = showDate ? 1 : 0
             clockLabel.frame = CGRect(x: 16, y: top, width: width - 32, height: clockHeight)
             dateLabel.frame = CGRect(x: 18, y: clockLabel.frame.maxY + gap, width: width - 36, height: dateHeight)
             clockLabel.font = makeFont(min(textSize, clockHeight / 1.12))
-            dateLabel.font = makeFont(max(13, min(20, textSize * 0.24)))
+            dateLabel.font = makeFont(max(14, min(18, textSize * 0.22)))
             dateLabel.isHidden = !showDate
             clockLabel.textAlignment = .center
         } else {
@@ -238,7 +238,8 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         f.dateFormat = (isLargeDisplay && showSeconds) ? "HH:mm:ss" : "HH:mm"
         clockLabel.text = f.string(from: Date())
         f.dateFormat = "EEEE\ndd/MM/yyyy"
-        dateLabel.text = (isLargeDisplay && showDate) ? f.string(from: Date()).capitalized : nil    }
+        dateLabel.text = (isLargeDisplay && showDate) ? f.string(from: Date()).capitalized : nil
+    }
 
     private func startTimers() {
         clockTimer?.invalidate()
