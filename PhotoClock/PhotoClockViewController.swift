@@ -165,23 +165,40 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         chooseButton.frame = CGRect(x: 8, y: 8, width: max(0, controlsContainer.bounds.width / 2 - 12), height: 42)
         settingsButton.frame = CGRect(x: controlsContainer.bounds.width / 2 + 4, y: 8, width: max(0, controlsContainer.bounds.width / 2 - 12), height: 42)
 
-        // Keep the clock/date inside the visible safe area, even on very short compact/CarPlay-like layouts.
+        // Adaptive CarBridge layout: roomy displays prioritize the photo; compact displays prioritize readability.
+        let isLargeDisplay = width >= 700 && height >= 320
         let top = safe.top + 10
-        let bottom = controlsVisible ? controlsContainer.frame.minY - 12 : height - max(safe.bottom, 12)
-        let available = max(80, bottom - top)
-        let preferredClock = min(textSize, landscape ? 92 : 150)
-        let dateHeight: CGFloat = showDate ? max(42, min(60, preferredClock * 0.62)) : 0
-        let gap: CGFloat = showDate ? 4 : 0
-        let maxClock = max(34, available - dateHeight - gap - 12)
-        let clockHeight = min(preferredClock * 1.20, maxClock)
-        let total = clockHeight + gap + dateHeight
-        let y = top + max(0, (available - total) / 2)
 
-        clockLabel.frame = CGRect(x: 12, y: y, width: width - 24, height: clockHeight)
-        dateLabel.frame = CGRect(x: 18, y: clockLabel.frame.maxY + gap, width: width - 36, height: dateHeight)
-        clockLabel.font = makeFont(min(textSize, clockHeight / 1.20))
-        dateLabel.font = makeFont(max(15, min(20, textSize * 0.27)))
-    }
+        if isLargeDisplay {
+            // Large display: clear photo with time and date at the top.
+            photoImageView.alpha = 1
+            dimView.alpha = imageDarkness
+            let clockHeight: CGFloat = min(76, max(48, height * 0.16))
+            let dateHeight: CGFloat = showDate ? min(42, max(24, height * 0.085)) : 0
+            let gap: CGFloat = showDate ? 1 : 0
+            clockLabel.frame = CGRect(x: 16, y: top, width: width - 32, height: clockHeight)
+            dateLabel.frame = CGRect(x: 18, y: clockLabel.frame.maxY + gap, width: width - 36, height: dateHeight)
+            clockLabel.font = makeFont(min(textSize, clockHeight / 1.12))
+            dateLabel.font = makeFont(max(13, min(20, textSize * 0.24)))
+            dateLabel.isHidden = !showDate
+            clockLabel.textAlignment = .center
+        } else {
+            // Compact display: blurred/darkened background and a large HH:mm clock centered.
+            photoImageView.alpha = 0
+            dimView.alpha = max(imageDarkness, 0.38)
+            dateLabel.isHidden = true
+            clockLabel.textAlignment = .center
+            let clockHeight = min(height * 0.48, max(72, width * 0.40))
+            let clockWidth = max(0, width - 20)
+            clockLabel.frame = CGRect(
+                x: 10,
+                y: max(top, (height - clockHeight) / 2),
+                width: clockWidth,
+                height: clockHeight
+            )
+            clockLabel.font = makeFont(min(max(textSize, width * 0.22), min(width * 0.30, 180)))
+            dateLabel.frame = .zero
+        }    }
 
     private func makeFont(_ size: CGFloat) -> UIFont {
         fontName == "System" ? .systemFont(ofSize:size) : (UIFont(name:fontName,size:size) ?? .systemFont(ofSize:size))
@@ -208,11 +225,11 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
     private func updateClock() {
         let f = DateFormatter()
         f.locale = Locale(identifier: "vi_VN")
-        f.dateFormat = showSeconds ? "HH:mm:ss" : "HH:mm"
+        let isLargeDisplay = view.bounds.width >= 700 && view.bounds.height >= 320
+        f.dateFormat = (isLargeDisplay && showSeconds) ? "HH:mm:ss" : "HH:mm"
         clockLabel.text = f.string(from: Date())
         f.dateFormat = "EEEE\ndd/MM/yyyy"
-        dateLabel.text = showDate ? f.string(from: Date()).capitalized : nil
-    }
+        dateLabel.text = (isLargeDisplay && showDate) ? f.string(from: Date()).capitalized : nil    }
 
     private func startTimers() {
         clockTimer?.invalidate()
