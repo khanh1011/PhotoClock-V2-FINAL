@@ -45,6 +45,10 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         let v = UserDefaults.standard.double(forKey: "textSize")
         return v > 0 ? v : 84
     }
+    private var dateTextSize: CGFloat {
+        let v = UserDefaults.standard.double(forKey: "dateTextSize")
+        return v > 0 ? v : 22
+    }
     private var fontName: String { UserDefaults.standard.string(forKey: "fontName") ?? "System" }
     private var showDate: Bool { UserDefaults.standard.object(forKey: "showDate") == nil ? true : UserDefaults.standard.bool(forKey: "showDate") }
     private var showSeconds: Bool { UserDefaults.standard.bool(forKey: "showSeconds") }
@@ -96,7 +100,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
     private func setupDefaults() {
         let d = UserDefaults.standard
         let defaults: [String: Any] = [
-            "photoInterval": 30.0, "textSize": 84.0, "fontName": "System", "imageBlur": 1.2, "imageDarkness": 0.20,
+            "photoInterval": 30.0, "textSize": 84.0, "dateTextSize": 22.0, "fontName": "System", "imageBlur": 1.2, "imageDarkness": 0.20,
             "showDate": true, "showSeconds": false, "orientationMode": 0, "randomPhotos": true, "displayMode": 0, "largeDisplayHeightThreshold": 250.0,
             "textR": 1.0, "textG": 1.0, "textB": 1.0
         ]
@@ -188,7 +192,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
             clockLabel.frame = CGRect(x: 16, y: top, width: width - 32, height: clockHeight)
             dateLabel.frame = CGRect(x: 18, y: clockLabel.frame.maxY + gap, width: width - 36, height: dateHeight)
             clockLabel.font = makeFont(min(textSize, clockHeight / 1.12))
-            dateLabel.font = makeFont(max(18, min(24, textSize * 0.30)))
+            dateLabel.font = makeFont(min(dateTextSize, dateHeight / 1.2))
             dateLabel.isHidden = !showDate
             clockLabel.textAlignment = .center
         } else {
@@ -217,7 +221,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
                 height: dateHeight
             )
             clockLabel.font = makeFont(min(max(textSize, width * 0.20), min(width * 0.28, 180)))
-            dateLabel.font = makeFont(min(17, max(12, width * 0.055)))
+            dateLabel.font = makeFont(min(dateTextSize, max(12, dateHeight / 1.15)))
             dateLabel.numberOfLines = 1
             dateLabel.adjustsFontSizeToFitWidth = true
             dateLabel.minimumScaleFactor = 0.75
@@ -484,11 +488,37 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         hint.frame = CGRect(x: 24, y: y, width: view.bounds.width - 72, height: 42)
         y += 48
 
-        y=section("Kích thước chữ",s,y)
+        y=section("Kích thước chữ giờ",s,y)
+        let clockSizeLabel = UILabel()
+        clockSizeLabel.text = String(format: "Cỡ chữ giờ: %.0f", textSize)
+        clockSizeLabel.textColor = .label
+        clockSizeLabel.font = .systemFont(ofSize: 13)
+        clockSizeLabel.tag = 8051
+        s.addSubview(clockSizeLabel)
+        clockSizeLabel.frame = CGRect(x:24,y:y,width:view.bounds.width-72,height:20)
+        y += 20
         let slider=UISlider()
         slider.minimumValue=48; slider.maximumValue=150; slider.value=Float(textSize)
         slider.addTarget(self,action:#selector(sizeChanged(_:)),for:.valueChanged)
-        s.addSubview(slider); slider.frame=CGRect(x:24,y:y,width:view.bounds.width-72,height:32); y+=52
+        s.addSubview(slider); slider.frame=CGRect(x:24,y:y,width:view.bounds.width-72,height:32); y+=42
+
+        y=section("Kích thước chữ ngày",s,y)
+        let dateSizeLabel = UILabel()
+        dateSizeLabel.text = String(format: "Cỡ chữ ngày: %.0f", dateTextSize)
+        dateSizeLabel.textColor = .label
+        dateSizeLabel.font = .systemFont(ofSize: 13)
+        dateSizeLabel.tag = 8052
+        s.addSubview(dateSizeLabel)
+        dateSizeLabel.frame = CGRect(x:24,y:y,width:view.bounds.width-72,height:20)
+        y += 20
+        let dateSlider = UISlider()
+        dateSlider.minimumValue = 12
+        dateSlider.maximumValue = 36
+        dateSlider.value = Float(dateTextSize)
+        dateSlider.addTarget(self, action: #selector(dateSizeChanged(_:)), for: .valueChanged)
+        s.addSubview(dateSlider)
+        dateSlider.frame = CGRect(x:24,y:y,width:view.bounds.width-72,height:32)
+        y += 42
 
         y=section("Độ mờ ảnh",s,y)
         let blurSlider=UISlider()
@@ -646,7 +676,16 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         view.setNeedsLayout()
         view.layoutIfNeeded()
     }
-    @objc private func sizeChanged(_ s:UISlider){UserDefaults.standard.set(Double(s.value),forKey:"textSize");view.setNeedsLayout()}
+    @objc private func sizeChanged(_ s:UISlider){
+        UserDefaults.standard.set(Double(s.value),forKey:"textSize")
+        if let label = settingsPanel?.viewWithTag(8051) as? UILabel { label.text = String(format: "Cỡ chữ giờ: %.0f", s.value) }
+        view.setNeedsLayout(); view.layoutIfNeeded()
+    }
+    @objc private func dateSizeChanged(_ s: UISlider) {
+        UserDefaults.standard.set(Double(s.value), forKey: "dateTextSize")
+        if let label = settingsPanel?.viewWithTag(8052) as? UILabel { label.text = String(format: "Cỡ chữ ngày: %.0f", s.value) }
+        view.setNeedsLayout(); view.layoutIfNeeded()
+    }
     @objc private func blurChanged(_ s:UISlider){
         UserDefaults.standard.set(Double(s.value),forKey:"imageBlur")
         applyImageEffects(animated:false)
