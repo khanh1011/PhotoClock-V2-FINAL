@@ -183,30 +183,44 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
             photoImageView.alpha = 1
             dimView.alpha = imageDarkness
             let clockHeight: CGFloat = min(76, max(48, height * 0.16))
-            let dateHeight: CGFloat = showDate ? min(48, max(42, height * 0.14)) : 0
+            let dateHeight: CGFloat = showDate ? min(62, max(54, height * 0.17)) : 0
             let gap: CGFloat = showDate ? 1 : 0
             clockLabel.frame = CGRect(x: 16, y: top, width: width - 32, height: clockHeight)
             dateLabel.frame = CGRect(x: 18, y: clockLabel.frame.maxY + gap, width: width - 36, height: dateHeight)
             clockLabel.font = makeFont(min(textSize, clockHeight / 1.12))
-            dateLabel.font = makeFont(max(14, min(18, textSize * 0.22)))
+            dateLabel.font = makeFont(max(18, min(24, textSize * 0.30)))
             dateLabel.isHidden = !showDate
             clockLabel.textAlignment = .center
         } else {
             // Compact display: blurred/darkened background and a large HH:mm clock centered.
             photoImageView.alpha = 0
             dimView.alpha = max(imageDarkness, 0.38)
-            dateLabel.isHidden = true
+            // Compact display: keep the large clock, with the date on one line underneath.
+            dateLabel.isHidden = !showDate
             clockLabel.textAlignment = .center
-            let clockHeight = min(height * 0.48, max(72, width * 0.40))
+            let clockHeight = min(height * 0.42, max(68, width * 0.36))
             let clockWidth = max(0, width - 20)
+            let dateHeight: CGFloat = showDate ? 28 : 0
+            let gap: CGFloat = showDate ? 2 : 0
+            let groupHeight = clockHeight + gap + dateHeight
+            let groupTop = max(top, (height - groupHeight) / 2 - 4)
             clockLabel.frame = CGRect(
                 x: 10,
-                y: max(top, (height - clockHeight) / 2),
+                y: groupTop,
                 width: clockWidth,
                 height: clockHeight
             )
-            clockLabel.font = makeFont(min(max(textSize, width * 0.22), min(width * 0.30, 180)))
-            dateLabel.frame = .zero
+            dateLabel.frame = CGRect(
+                x: 8,
+                y: clockLabel.frame.maxY + gap,
+                width: max(0, width - 16),
+                height: dateHeight
+            )
+            clockLabel.font = makeFont(min(max(textSize, width * 0.20), min(width * 0.28, 180)))
+            dateLabel.font = makeFont(min(17, max(12, width * 0.055)))
+            dateLabel.numberOfLines = 1
+            dateLabel.adjustsFontSizeToFitWidth = true
+            dateLabel.minimumScaleFactor = 0.75
         }    }
 
     private func makeFont(_ size: CGFloat) -> UIFont {
@@ -237,8 +251,8 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         let isLargeDisplay = self.isLargeDisplay
         f.dateFormat = (isLargeDisplay && showSeconds) ? "HH:mm:ss" : "HH:mm"
         clockLabel.text = f.string(from: Date())
-        f.dateFormat = "EEEE\ndd/MM/yyyy"
-        dateLabel.text = (isLargeDisplay && showDate) ? f.string(from: Date()).capitalized : nil
+        f.dateFormat = isLargeDisplay ? "EEEE\ndd/MM/yyyy" : "EEEE, dd/MM/yyyy"
+        dateLabel.text = showDate ? f.string(from: Date()) : nil
     }
 
     private func startTimers() {
