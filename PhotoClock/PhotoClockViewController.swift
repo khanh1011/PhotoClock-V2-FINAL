@@ -49,6 +49,15 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
     private var showDate: Bool { UserDefaults.standard.object(forKey: "showDate") == nil ? true : UserDefaults.standard.bool(forKey: "showDate") }
     private var showSeconds: Bool { UserDefaults.standard.bool(forKey: "showSeconds") }
     private var randomPhotos: Bool { UserDefaults.standard.object(forKey: "randomPhotos") == nil ? true : UserDefaults.standard.bool(forKey: "randomPhotos") }
+    // 1 = force large layout, 2 = force compact layout, 0 = automatic. Default to large for CarBridge split-screen.
+    private var displayMode: Int { UserDefaults.standard.object(forKey: "displayMode") == nil ? 1 : UserDefaults.standard.integer(forKey: "displayMode") }
+    private var largeDisplayWidthThreshold: CGFloat {
+        let saved = UserDefaults.standard.double(forKey: "largeDisplayWidthThreshold")
+        return saved > 0 ? CGFloat(saved) : 380
+    }
+    private var isLargeDisplay: Bool {
+        displayMode == 1 || (displayMode == 0 && view.bounds.width >= largeDisplayWidthThreshold)
+    }
     private var imageBlur: CGFloat {
         let v = UserDefaults.standard.double(forKey: "imageBlur")
         return v >= 0 ? CGFloat(v) : 1.2
@@ -88,7 +97,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         let d = UserDefaults.standard
         let defaults: [String: Any] = [
             "photoInterval": 30.0, "textSize": 84.0, "fontName": "System", "imageBlur": 1.2, "imageDarkness": 0.20,
-            "showDate": true, "showSeconds": false, "orientationMode": 0, "randomPhotos": true,
+            "showDate": true, "showSeconds": false, "orientationMode": 0, "randomPhotos": true, "displayMode": 0, "largeDisplayWidthThreshold": 380.0,
             "textR": 1.0, "textG": 1.0, "textB": 1.0
         ]
         for (k,v) in defaults where d.object(forKey: k) == nil { d.set(v, forKey: k) }
@@ -166,7 +175,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         settingsButton.frame = CGRect(x: controlsContainer.bounds.width / 2 + 4, y: 8, width: max(0, controlsContainer.bounds.width / 2 - 12), height: 42)
 
         // Adaptive CarBridge layout: roomy displays prioritize the photo; compact displays prioritize readability.
-        let isLargeDisplay = width >= 700 && height >= 320
+        let isLargeDisplay = self.isLargeDisplay
         let top = safe.top + 10
 
         if isLargeDisplay {
@@ -225,7 +234,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
     private func updateClock() {
         let f = DateFormatter()
         f.locale = Locale(identifier: "vi_VN")
-        let isLargeDisplay = view.bounds.width >= 700 && view.bounds.height >= 320
+        let isLargeDisplay = self.isLargeDisplay
         f.dateFormat = (isLargeDisplay && showSeconds) ? "HH:mm:ss" : "HH:mm"
         clockLabel.text = f.string(from: Date())
         f.dateFormat = "EEEE\ndd/MM/yyyy"
@@ -401,6 +410,65 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         p.addSubview(s)
         var y:CGFloat=12
 
+        y=section("Chế độ hiển thị",s,y)
+        let modeRow = UIStackView()
+        modeRow.axis = .horizontal
+        modeRow.distribution = .fillEqually
+        modeRow.spacing = 8
+        s.addSubview(modeRow)
+        modeRow.frame = CGRect(x:18,y:y,width:view.bounds.width-60,height:42)
+        let modes:[(String,Int)] = [("Tự động",0),("Màn lớn",1),("Màn nhỏ",2)]
+        for (name,value) in modes {
+            let b = UIButton(type:.system)
+            b.setTitle(name,for:.normal)
+            b.titleLabel?.font = .systemFont(ofSize:14,weight:.semibold)
+            b.layer.cornerRadius = 10
+            b.backgroundColor = displayMode == value ? .systemBlue : UIColor.secondarySystemBackground
+            b.setTitleColor(displayMode == value ? .white : .label,for:.normal)
+            b.accessibilityIdentifier = String(value)
+            b.addTarget(self,action:#selector(displayModeChanged(_:)),for:.touchUpInside)
+            modeRow.addArrangedSubview(b)
+        }
+        y += 54
+
+        y = section("Hiệu chỉnh tự động CarBridge", s, y)
+        let currentSize = UILabel()
+        currentSize.text = String(format: "Kích thước vùng hiện tại: %.0f × %.0f pt", view.bounds.width, view.bounds.height)
+        currentSize.textColor = .secondaryLabel
+        currentSize.font = .systemFont(ofSize: 13)
+        currentSize.numberOfLines = 2
+        s.addSubview(currentSize)
+        currentSize.frame = CGRect(x: 24, y: y, width: view.bounds.width - 72, height: 34)
+        y += 38
+
+        let thresholdLabel = UILabel()
+        thresholdLabel.text = String(format: "Ngưỡng màn lớn: %.0f pt chiều rộng", largeDisplayWidthThreshold)
+        thresholdLabel.textColor = .label
+        thresholdLabel.font = .systemFont(ofSize: 14, weight: .medium)
+        thresholdLabel.tag = 8041
+        s.addSubview(thresholdLabel)
+        thresholdLabel.frame = CGRect(x: 24, y: y, width: view.bounds.width - 72, height: 24)
+        y += 24
+
+        let thresholdSlider = UISlider()
+        thresholdSlider.minimumValue = 240
+        thresholdSlider.maximumValue = 900
+        thresholdSlider.value = Float(largeDisplayWidthThreshold)
+        thresholdSlider.accessibilityIdentifier = "largeDisplayWidthThreshold"
+        thresholdSlider.addTarget(self, action: #selector(displayThresholdChanged(_:)), for: .valueChanged)
+        s.addSubview(thresholdSlider)
+        thresholdSlider.frame = CGRect(x: 24, y: y, width: view.bounds.width - 72, height: 32)
+        y += 40
+
+        let hint = UILabel()
+        hint.text = "Chọn Tự động, rồi chỉnh ngưỡng để ô chia đôi nhận là màn lớn còn ô nhỏ nhận là màn nhỏ. Ngưỡng được lưu trên iPhone."
+        hint.textColor = .secondaryLabel
+        hint.font = .systemFont(ofSize: 12)
+        hint.numberOfLines = 0
+        s.addSubview(hint)
+        hint.frame = CGRect(x: 24, y: y, width: view.bounds.width - 72, height: 42)
+        y += 48
+
         y=section("Kích thước chữ",s,y)
         let slider=UISlider()
         slider.minimumValue=48; slider.maximumValue=150; slider.value=Float(textSize)
@@ -543,7 +611,26 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         return y+44
     }
 
+    @objc private func displayModeChanged(_ b:UIButton) {
+        buttonTapFeedback(b)
+        UserDefaults.standard.set(Int(b.accessibilityIdentifier ?? "1") ?? 1, forKey:"displayMode")
+        updateClock()
+        view.setNeedsLayout()
+        view.layoutIfNeeded()
+        refreshSettingsPanel()
+    }
     @objc private func closeSettings(){settingsPanel?.removeFromSuperview();settingsPanel=nil;setControls(true)}
+    @objc private func displayThresholdChanged(_ slider: UISlider) {
+        let threshold = CGFloat(slider.value)
+        UserDefaults.standard.set(Double(threshold), forKey: "largeDisplayWidthThreshold")
+        if let panel = settingsPanel,
+           let label = panel.viewWithTag(8041) as? UILabel {
+            label.text = String(format: "Ngưỡng màn lớn: %.0f pt chiều rộng", threshold)
+        }
+        updateClock()
+        view.setNeedsLayout()
+        view.layoutIfNeeded()
+    }
     @objc private func sizeChanged(_ s:UISlider){UserDefaults.standard.set(Double(s.value),forKey:"textSize");view.setNeedsLayout()}
     @objc private func blurChanged(_ s:UISlider){
         UserDefaults.standard.set(Double(s.value),forKey:"imageBlur")
