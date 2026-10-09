@@ -118,6 +118,8 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         styleButton(settingsButton, "⚙️  Cài đặt", #selector(openSettings))
         controlsContainer.layer.cornerRadius = 18
         controlsContainer.clipsToBounds = true
+        // Start with controls hidden; a screen tap reveals them.
+        controlsContainer.alpha = 0
         controlsContainer.contentView.addSubview(chooseButton)
         controlsContainer.contentView.addSubview(settingsButton)
         view.addSubview(controlsContainer)
@@ -364,21 +366,32 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         s.addSubview(darknessSlider); darknessSlider.frame=CGRect(x:24,y:y,width:view.bounds.width-72,height:32); y+=52
 
         y=section("Màu chữ",s,y)
-        let cs:[(String,UIColor)]=[("Trắng",.white),("Vàng",.systemYellow),("Xanh",.systemCyan),("Hồng",.systemPink),("Cam",.systemOrange),("Đen",.black)]
-        let stack=UIStackView(); stack.axis = .horizontal; stack.distribution = .fillEqually; stack.spacing=8
-        s.addSubview(stack); stack.frame=CGRect(x:24,y:y,width:view.bounds.width-72,height:42)
+        let cs:[(String,UIColor)]=[
+            ("Trắng",.white),("Vàng",.systemYellow),("Xanh dương",.systemBlue),
+            ("Xanh ngọc",.systemTeal),("Xanh lá",.systemGreen),("Tím",.systemPurple),
+            ("Hồng",.systemPink),("Đỏ",.systemRed),("Cam",.systemOrange),
+            ("Tím nhạt",UIColor(red:0.78,green:0.62,blue:1.0,alpha:1)),
+            ("Xanh da trời",UIColor(red:0.35,green:0.78,blue:1.0,alpha:1)),("Đen",.black)
+        ]
+        let rows=UIStackView(); rows.axis = .vertical; rows.distribution = .fillEqually; rows.spacing=7
+        s.addSubview(rows); rows.frame=CGRect(x:24,y:y,width:view.bounds.width-72,height:91)
         let selectedColorName = currentColorName()
-        for (n,c) in cs {
-            let b=UIButton(type:.system)
-            b.setTitle(n == selectedColorName ? "✓" : "●", for:.normal)
-            b.setTitleColor(c,for:.normal)
-            b.backgroundColor = n == selectedColorName ? UIColor.white.withAlphaComponent(0.24) : UIColor.white.withAlphaComponent(0.10)
-            b.layer.cornerRadius=10
-            b.accessibilityIdentifier=n
-            b.addTarget(self,action:#selector(colorChanged(_:)),for:.touchUpInside)
-            stack.addArrangedSubview(b)
+        for start in stride(from:0,to:cs.count,by:6) {
+            let row=UIStackView(); row.axis = .horizontal; row.distribution = .fillEqually; row.spacing=7
+            for (n,c) in cs[start..<min(start+6,cs.count)] {
+                let b=UIButton(type:.system)
+                b.setTitle(n == selectedColorName ? "✓" : "●", for:.normal)
+                b.setTitleColor(c,for:.normal)
+                b.backgroundColor = n == selectedColorName ? UIColor.white.withAlphaComponent(0.28) : UIColor.white.withAlphaComponent(0.10)
+                b.layer.cornerRadius=10
+                b.accessibilityIdentifier=n
+                b.accessibilityLabel=n
+                b.addTarget(self,action:#selector(colorChanged(_:)),for:.touchUpInside)
+                row.addArrangedSubview(b)
+            }
+            rows.addArrangedSubview(row)
         }
-        y+=62
+        y+=111
 
         y=section("Font chữ",s,y)
         let fonts=["System","Helvetica Neue","Avenir Next","Georgia","Courier New","Menlo"]
@@ -453,7 +466,12 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
     private func currentColorName() -> String {
         let d=UserDefaults.standard
         let r=d.double(forKey:"textR"), g=d.double(forKey:"textG"), b=d.double(forKey:"textB")
-        let colors:[(String,CGFloat,CGFloat,CGFloat)]=[("Trắng",1,1,1),("Vàng",1,0.92,0.23),("Xanh",0.0,0.98,1.0),("Hồng",1.0,0.18,0.33),("Cam",1.0,0.58,0.0),("Đen",0,0,0)]
+        let colors:[(String,CGFloat,CGFloat,CGFloat)]=[
+            ("Trắng",1,1,1),("Vàng",1,0.92,0.23),("Xanh dương",0.0,0.48,1.0),
+            ("Xanh ngọc",0.0,0.78,0.75),("Xanh lá",0.20,0.78,0.35),("Tím",0.69,0.32,0.87),
+            ("Hồng",1.0,0.18,0.33),("Đỏ",1.0,0.23,0.19),("Cam",1.0,0.58,0.0),
+            ("Tím nhạt",0.78,0.62,1.0),("Xanh da trời",0.35,0.78,1.0),("Đen",0,0,0)
+        ]
         return colors.min { a,c in
             let da=(r-a.1)*(r-a.1)+(g-a.2)*(g-a.2)+(b-a.3)*(b-a.3)
             let dc=(r-c.1)*(r-c.1)+(g-c.2)*(g-c.2)+(b-c.3)*(b-c.3)
@@ -482,9 +500,15 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         let c: UIColor = {
             switch b.accessibilityIdentifier ?? "Trắng" {
             case "Vàng": return .systemYellow
-            case "Xanh": return .systemCyan
+            case "Xanh dương": return .systemBlue
+            case "Xanh ngọc": return .systemTeal
+            case "Xanh lá": return .systemGreen
+            case "Tím": return .systemPurple
             case "Hồng": return .systemPink
+            case "Đỏ": return .systemRed
             case "Cam": return .systemOrange
+            case "Tím nhạt": return UIColor(red:0.78,green:0.62,blue:1.0,alpha:1)
+            case "Xanh da trời": return UIColor(red:0.35,green:0.78,blue:1.0,alpha:1)
             case "Đen": return .black
             default: return .white
             }
