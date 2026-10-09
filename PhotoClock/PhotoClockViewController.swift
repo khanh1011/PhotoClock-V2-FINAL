@@ -50,13 +50,13 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
     private var showSeconds: Bool { UserDefaults.standard.bool(forKey: "showSeconds") }
     private var randomPhotos: Bool { UserDefaults.standard.object(forKey: "randomPhotos") == nil ? true : UserDefaults.standard.bool(forKey: "randomPhotos") }
     // 1 = force large layout, 2 = force compact layout, 0 = automatic. Default to large for CarBridge split-screen.
-    private var displayMode: Int { UserDefaults.standard.object(forKey: "displayMode") == nil ? 1 : UserDefaults.standard.integer(forKey: "displayMode") }
-    private var largeDisplayWidthThreshold: CGFloat {
-        let saved = UserDefaults.standard.double(forKey: "largeDisplayWidthThreshold")
-        return saved > 0 ? CGFloat(saved) : 380
+    private var displayMode: Int { UserDefaults.standard.object(forKey: "displayMode") == nil ? 0 : UserDefaults.standard.integer(forKey: "displayMode") }
+    private var largeDisplayHeightThreshold: CGFloat {
+        let saved = UserDefaults.standard.double(forKey: "largeDisplayHeightThreshold")
+        return saved > 0 ? CGFloat(saved) : 250
     }
     private var isLargeDisplay: Bool {
-        displayMode == 1 || (displayMode == 0 && view.bounds.width >= largeDisplayWidthThreshold)
+        displayMode == 1 || (displayMode == 0 && view.bounds.height >= largeDisplayHeightThreshold)
     }
     private var imageBlur: CGFloat {
         let v = UserDefaults.standard.double(forKey: "imageBlur")
@@ -97,7 +97,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         let d = UserDefaults.standard
         let defaults: [String: Any] = [
             "photoInterval": 30.0, "textSize": 84.0, "fontName": "System", "imageBlur": 1.2, "imageDarkness": 0.20,
-            "showDate": true, "showSeconds": false, "orientationMode": 0, "randomPhotos": true, "displayMode": 0, "largeDisplayWidthThreshold": 380.0,
+            "showDate": true, "showSeconds": false, "orientationMode": 0, "randomPhotos": true, "displayMode": 0, "largeDisplayHeightThreshold": 250.0,
             "textR": 1.0, "textG": 1.0, "textB": 1.0
         ]
         for (k,v) in defaults where d.object(forKey: k) == nil { d.set(v, forKey: k) }
@@ -442,7 +442,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         y += 38
 
         let thresholdLabel = UILabel()
-        thresholdLabel.text = String(format: "Ngưỡng màn lớn: %.0f pt chiều rộng", largeDisplayWidthThreshold)
+        thresholdLabel.text = String(format: "Ngưỡng màn lớn: %.0f pt chiều cao", largeDisplayHeightThreshold)
         thresholdLabel.textColor = .label
         thresholdLabel.font = .systemFont(ofSize: 14, weight: .medium)
         thresholdLabel.tag = 8041
@@ -451,17 +451,17 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         y += 24
 
         let thresholdSlider = UISlider()
-        thresholdSlider.minimumValue = 240
-        thresholdSlider.maximumValue = 900
-        thresholdSlider.value = Float(largeDisplayWidthThreshold)
-        thresholdSlider.accessibilityIdentifier = "largeDisplayWidthThreshold"
+        thresholdSlider.minimumValue = 120
+        thresholdSlider.maximumValue = 600
+        thresholdSlider.value = Float(largeDisplayHeightThreshold)
+        thresholdSlider.accessibilityIdentifier = "largeDisplayHeightThreshold"
         thresholdSlider.addTarget(self, action: #selector(displayThresholdChanged(_:)), for: .valueChanged)
         s.addSubview(thresholdSlider)
         thresholdSlider.frame = CGRect(x: 24, y: y, width: view.bounds.width - 72, height: 32)
         y += 40
 
         let hint = UILabel()
-        hint.text = "Chọn Tự động, rồi chỉnh ngưỡng để ô chia đôi nhận là màn lớn còn ô nhỏ nhận là màn nhỏ. Ngưỡng được lưu trên iPhone."
+        hint.text = "Chọn Tự động, rồi chỉnh ngưỡng chiều cao để ô chia đôi nhận là màn lớn còn ô nhỏ nhận là màn nhỏ. Ngưỡng được lưu trên iPhone."
         hint.textColor = .secondaryLabel
         hint.font = .systemFont(ofSize: 12)
         hint.numberOfLines = 0
@@ -622,10 +622,10 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
     @objc private func closeSettings(){settingsPanel?.removeFromSuperview();settingsPanel=nil;setControls(true)}
     @objc private func displayThresholdChanged(_ slider: UISlider) {
         let threshold = CGFloat(slider.value)
-        UserDefaults.standard.set(Double(threshold), forKey: "largeDisplayWidthThreshold")
+        UserDefaults.standard.set(Double(threshold), forKey: "largeDisplayHeightThreshold")
         if let panel = settingsPanel,
            let label = panel.viewWithTag(8041) as? UILabel {
-            label.text = String(format: "Ngưỡng màn lớn: %.0f pt chiều rộng", threshold)
+            label.text = String(format: "Ngưỡng màn lớn: %.0f pt chiều cao", threshold)
         }
         updateClock()
         view.setNeedsLayout()
