@@ -27,6 +27,8 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
     private var clockTimer: Timer?
     private var images: [UIImage] = []
     private var currentIndex = 0
+    private var randomOrder: [Int] = []
+    private var randomOrderPosition = 0
     private var settingsPanel: UIView?
     private var controlsVisible = false
     private var blurTask: DispatchWorkItem?
@@ -46,6 +48,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
     private var fontName: String { UserDefaults.standard.string(forKey: "fontName") ?? "System" }
     private var showDate: Bool { UserDefaults.standard.object(forKey: "showDate") == nil ? true : UserDefaults.standard.bool(forKey: "showDate") }
     private var showSeconds: Bool { UserDefaults.standard.bool(forKey: "showSeconds") }
+    private var randomPhotos: Bool { UserDefaults.standard.object(forKey: "randomPhotos") == nil ? true : UserDefaults.standard.bool(forKey: "randomPhotos") }
     private var imageBlur: CGFloat {
         let v = UserDefaults.standard.double(forKey: "imageBlur")
         return v >= 0 ? CGFloat(v) : 1.2
@@ -63,6 +66,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        overrideUserInterfaceStyle = .unspecified
         setupDefaults()
         setupUI()
         loadPhotos()
@@ -84,7 +88,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         let d = UserDefaults.standard
         let defaults: [String: Any] = [
             "photoInterval": 30.0, "textSize": 84.0, "fontName": "System", "imageBlur": 1.2, "imageDarkness": 0.20,
-            "showDate": true, "showSeconds": false, "orientationMode": 0,
+            "showDate": true, "showSeconds": false, "orientationMode": 0, "randomPhotos": true,
             "textR": 1.0, "textG": 1.0, "textB": 1.0
         ]
         for (k,v) in defaults where d.object(forKey: k) == nil { d.set(v, forKey: k) }
@@ -116,6 +120,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
 
         styleButton(chooseButton, "🖼  Chọn ảnh", #selector(selectPhotos))
         styleButton(settingsButton, "⚙️  Cài đặt", #selector(openSettings))
+        controlsContainer.effect = UIBlurEffect(style: traitCollection.userInterfaceStyle == .dark ? .systemMaterialDark : .systemMaterialLight)
         controlsContainer.layer.cornerRadius = 18
         controlsContainer.clipsToBounds = true
         // Start with controls hidden; a screen tap reveals them.
@@ -130,7 +135,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
 
     private func styleButton(_ b: UIButton, _ title: String, _ action: Selector) {
         b.setTitle(title, for: .normal)
-        b.setTitleColor(.white, for: .normal)
+        b.setTitleColor(traitCollection.userInterfaceStyle == .dark ? .white : .black, for: .normal)
         b.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
         b.backgroundColor = UIColor.white.withAlphaComponent(0.10)
         b.layer.cornerRadius = 12
@@ -182,6 +187,16 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         fontName == "System" ? .systemFont(ofSize:size) : (UIFont(name:fontName,size:size) ?? .systemFont(ofSize:size))
     }
 
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            controlsContainer.effect = UIBlurEffect(style: traitCollection.userInterfaceStyle == .dark ? .systemMaterialDark : .systemMaterialLight)
+            chooseButton.setTitleColor(traitCollection.userInterfaceStyle == .dark ? .white : .black, for: .normal)
+            settingsButton.setTitleColor(traitCollection.userInterfaceStyle == .dark ? .white : .black, for: .normal)
+            applyAppearance()
+        }
+    }
+
     private func applyAppearance() {
         clockLabel.textColor = textColor
         dateLabel.textColor = textColor.withAlphaComponent(0.95)
@@ -220,6 +235,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         let urls = (try? FileManager.default.contentsOfDirectory(at:photosFolder(),includingPropertiesForKeys:nil)) ?? []
         let sorted = urls.filter{$0.pathExtension.lowercased()=="jpg"}.sorted{$0.lastPathComponent<$1.lastPathComponent}
         images = sorted.compactMap{UIImage(contentsOfFile:$0.path)}
+        rebuildRandomOrder()
         showCurrent(false)
     }
 
@@ -252,7 +268,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         }
         group.notify(queue:.main) {
             self.loadPhotos()
-            self.currentIndex = 0
+            self.currentIndex = self.randomOrder.first ?? 0
             self.showCurrent(true)
             self.restartSlideshow()
         }
@@ -310,9 +326,30 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         return UIImage(cgImage: cg, scale: image.scale, orientation: image.imageOrientation)
     }
 
+    private func rebuildRandomOrder() {
+        guard !images.isEmpty else { randomOrder = []; randomOrderPosition = 0; currentIndex = 0; return }
+        randomOrder = Array(images.indices)
+        if randomPhotos { randomOrder.shuffle() }
+        randomOrderPosition = 0
+        currentIndex = randomOrder[0]
+    }
+
     private func nextPhoto() {
-        guard images.count>1 else{return}
-        currentIndex=(currentIndex+1)%images.count
+        guard images.count > 1 else { return }
+        if randomPhotos {
+            // Shuffle-bag behavior: each photo appears once per round.
+            if randomOrder.isEmpty || randomOrder.count != images.count { rebuildRandomOrder() }
+            randomOrderPosition += 1
+            if randomOrderPosition >= randomOrder.count {
+                let previous = currentIndex
+                randomOrder.shuffle()
+                if randomOrder.first == previous, randomOrder.count > 1 { randomOrder.swapAt(0, 1) }
+                randomOrderPosition = 0
+            }
+            currentIndex = randomOrder[randomOrderPosition]
+        } else {
+            currentIndex = (currentIndex + 1) % images.count
+        }
         showCurrent(true)
     }
 
@@ -327,19 +364,19 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
     @objc private func openSettings() {
         let p=UIView()
         p.frame=CGRect(x:12,y:12,width:view.bounds.width-24,height:view.bounds.height-24)
-        p.backgroundColor=UIColor.black.withAlphaComponent(0.95)
+        p.backgroundColor = UIColor { trait in trait.userInterfaceStyle == .dark ? UIColor.secondarySystemBackground.withAlphaComponent(0.98) : UIColor.systemBackground.withAlphaComponent(0.98) }
         p.layer.cornerRadius=24
         p.clipsToBounds=true
         let title=UILabel()
         title.text="PhotoClock • Cài đặt"
-        title.textColor = .white
+        title.textColor = .label
         title.font = .systemFont(ofSize:22,weight:.bold)
         title.textAlignment = .center
         p.addSubview(title)
 
         let close=UIButton(type:.system)
         close.setTitle("Đóng",for:.normal)
-        close.setTitleColor(.white,for:.normal)
+        close.setTitleColor(.label,for:.normal)
         close.addTarget(self,action:#selector(closeSettings),for:.touchUpInside)
         p.addSubview(close)
 
@@ -398,6 +435,10 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         y=buttonList(fonts,s,y,selected:fontName,selector:#selector(fontChanged(_:)))
         y+=12
 
+        y=section("Ảnh",s,y)
+        y=addSwitch("Đổi ảnh ngẫu nhiên",randomPhotos,s,y,#selector(randomPhotosChanged(_:)))
+        y+=8
+
         y=section("Thời gian đổi ảnh",s,y)
         let ints:[(String,Double)]=[("5 giây",5),("10 giây",10),("15 giây",15),("30 giây",30),("1 phút",60),("2 phút",120),("5 phút",300)]
         y=buttonList(ints.map{($0.0,String($0.1))},s,y,selected:String(interval),selector:#selector(intervalChanged(_:)))
@@ -423,19 +464,19 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
     }
 
     private func section(_ t:String,_ s:UIScrollView,_ y:CGFloat)->CGFloat {
-        let l=UILabel(); l.text=t; l.textColor = .white.withAlphaComponent(0.7); l.font = .systemFont(ofSize:14,weight:.semibold)
+        let l=UILabel(); l.text=t; l.textColor = .secondaryLabel; l.font = .systemFont(ofSize:14,weight:.semibold)
         s.addSubview(l); l.frame=CGRect(x:24,y:y,width:view.bounds.width-72,height:24); return y+30
     }
 
     private func styleOptionButton(_ b:UIButton, title:String, selected:Bool) {
         b.setTitle(selected ? "✓  " + title : "    " + title, for:.normal)
-        b.setTitleColor(.white,for:.normal)
+        b.setTitleColor(.label,for:.normal)
         b.contentHorizontalAlignment = .left
         b.titleLabel?.font = .systemFont(ofSize:16, weight:selected ? .semibold : .regular)
-        b.backgroundColor = selected ? UIColor.white.withAlphaComponent(0.18) : UIColor.white.withAlphaComponent(0.06)
+        b.backgroundColor = selected ? UIColor.label.withAlphaComponent(0.12) : UIColor.secondarySystemBackground
         b.layer.cornerRadius = 10
         b.layer.borderWidth = selected ? 1 : 0
-        b.layer.borderColor = UIColor.white.withAlphaComponent(0.35).cgColor
+        b.layer.borderColor = UIColor.separator.cgColor
         b.accessibilityValue = selected ? "selected" : ""
     }
 
@@ -480,7 +521,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
     }
 
     private func addSwitch(_ t:String,_ on:Bool,_ s:UIScrollView,_ y:CGFloat,_ sel:Selector)->CGFloat {
-        let l=UILabel(); l.text=t; l.textColor = .white; l.font = .systemFont(ofSize:16); s.addSubview(l); l.frame=CGRect(x:24,y:y,width:view.bounds.width-114,height:36)
+        let l=UILabel(); l.text=t; l.textColor = .label; l.font = .systemFont(ofSize:16); s.addSubview(l); l.frame=CGRect(x:24,y:y,width:view.bounds.width-114,height:36)
         let sw=UISwitch(); sw.isOn=on; sw.addTarget(self,action:sel,for:.valueChanged); s.addSubview(sw); sw.frame=CGRect(x:view.bounds.width-98,y:y,width:50,height:32)
         return y+44
     }
@@ -527,6 +568,12 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         if let v=Double(b.accessibilityIdentifier ?? ""){UserDefaults.standard.set(v,forKey:"photoInterval");restartSlideshow();refreshSettingsPanel()}
     }
     @objc private func dateChanged(_ s:UISwitch){UserDefaults.standard.set(s.isOn,forKey:"showDate");applyAppearance();updateClock()}
+    @objc private func randomPhotosChanged(_ s:UISwitch) {
+        UserDefaults.standard.set(s.isOn, forKey: "randomPhotos")
+        rebuildRandomOrder()
+        showCurrent(true)
+        refreshSettingsPanel()
+    }
     @objc private func secondsChanged(_ s:UISwitch){UserDefaults.standard.set(s.isOn,forKey:"showSeconds");updateClock()}
     @objc private func orientationChanged(_ b:UIButton){
         buttonTapFeedback(b)
