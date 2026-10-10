@@ -128,7 +128,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         view.addSubview(clockLabel)
 
         dateLabel.textAlignment = .center
-        dateLabel.numberOfLines = 2
+        dateLabel.numberOfLines = 1
         view.addSubview(dateLabel)
 
         styleButton(chooseButton, "🖼  Chọn ảnh", #selector(selectPhotos))
@@ -187,12 +187,16 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
             photoImageView.alpha = 1
             dimView.alpha = imageDarkness
             let clockHeight: CGFloat = min(76, max(48, height * 0.16))
-            let dateHeight: CGFloat = showDate ? min(62, max(54, height * 0.17)) : 0
-            let gap: CGFloat = showDate ? 1 : 0
+            // Keep the full date on a single line on large displays too.
+            let dateHeight: CGFloat = showDate ? 34 : 0
+            let gap: CGFloat = showDate ? 2 : 0
             clockLabel.frame = CGRect(x: 16, y: top, width: width - 32, height: clockHeight)
             dateLabel.frame = CGRect(x: 18, y: clockLabel.frame.maxY + gap, width: width - 36, height: dateHeight)
             clockLabel.font = makeFont(min(textSize, clockHeight / 1.12))
-            dateLabel.font = makeFont(min(dateTextSize, dateHeight / 1.2))
+            dateLabel.font = makeFont(min(dateTextSize, dateHeight / 1.15))
+            dateLabel.numberOfLines = 1
+            dateLabel.adjustsFontSizeToFitWidth = true
+            dateLabel.minimumScaleFactor = 0.75
             dateLabel.isHidden = !showDate
             clockLabel.textAlignment = .center
         } else {
@@ -255,7 +259,7 @@ final class PhotoClockViewController: UIViewController, PHPickerViewControllerDe
         let isLargeDisplay = self.isLargeDisplay
         f.dateFormat = (isLargeDisplay && showSeconds) ? "HH:mm:ss" : "HH:mm"
         clockLabel.text = f.string(from: Date())
-        f.dateFormat = isLargeDisplay ? "EEEE\ndd/MM/yyyy" : "EEEE, dd/MM/yyyy"
+        f.dateFormat = "EEEE, dd/MM/yyyy"
         dateLabel.text = showDate ? f.string(from: Date()) : nil
     }
 
